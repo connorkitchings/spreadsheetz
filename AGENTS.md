@@ -1,223 +1,122 @@
 # AGENTS.md — Project Agent Operating Manual (Slim)
 
-> **Purpose:** This file is the **constitution** for AI coding agents (Claude Code, GPT-5, Cursor, etc.). It defines how to work in this repo, what is in-bounds vs. gated by humans, and the routing rules between agent roles. Keep this file short and link out to deeper docs when needed.
+> **Note:** This document defines the roles and responsibilities of specialized agents. For the primary, consolidated operating manual and contributor guide, please see **[AI_GUIDE.md](AI_GUIDE.md)**.
 
-**AI_GUIDE.md vs AGENTS.md:**
+## Purpose
 
-- **AI_GUIDE.md** → How to do work (playbooks, commands, context lookup)
-- **AGENTS.md** → Rules of engagement (guardrails, roles, escalation, quality gates)
-- Read AI_GUIDE first for "how", then AGENTS for "governance"
+This document defines the specific mandates for the AI and automation agents working on the SpreadSheetz project. It is intentionally short and aligned with the on-demand docs model.
 
-**Read-First:** `AI_GUIDE.md` → `docs/template_starting_guide.md` (when converting from template) → `docs/project_charter.md` → `docs/implementation_schedule.md` → `docs/development_standards.md` → `docs/checklists.md` → `docs/ai_session_templates.md`
+## Core Principles
 
-**Status Legend:** ☐ Not Started · ▶ In Progress · ✅ Done · ⚠ Risk/Blocked
+* Route clearly, ship small, cite sources, and keep provenance.
+* Prefer idempotent, reversible changes and audited admin actions.
+* Minimize context: link to docs instead of pasting large excerpts.
 
-**Last Updated:** 2025-11-04
+## Agent Roster And Mandates
 
----
+### Navigator (Front Door)
 
-## 1) Core Guardrails (Do / Don't)
+* Classify the request and produce a 3–7 line plan.
+* Select Specialist(s) and attach a minimal context bundle (links + key lines).
+* Confirm scope, definition of done, and constraints.
+* Open or update an issue or schedule task if applicable.
 
-### Do
+### Researcher
 
-- Start/End every session with the templates in `docs/ai_session_templates.md` and log to `session_logs/`.
-- When adopting this repo for a new project, run through `docs/template_starting_guide.md` before committing code.
-- Keep changes **small and testable**; 1 schedule task = 1 PR.
-- Run `uv sync` (first time), then `uv run ruff format . && uv run ruff check . && uv run pytest` before pushing.
-- Treat CLI/script output as next-step prompts; follow suggested commands.
-- Update docs when behavior changes (Charter, KB, or architecture notes).
+* Find up‑to‑date information and cite sources.
+* Return a concise brief with links and risks/gaps called out.
 
-### Don't (without human review)
+### DataOps
 
-- Secrets/credentials, auth/security config, schema/API contracts, DB migrations, deployment/infrastructure, or dependency upgrades beyond patch. Open a planning task instead and request review. See **Escalation Triggers** below.
+* Own ingestion CLIs, transforms, migrations, and CI diagnostics.
+* Ensure idempotent upserts, retries with backoff, and provenance storage.
 
----
+### Feature Engineer
 
-## 2) Roles & Mandates
+* Design features and guard against leakage.
+* Maintain naming conventions and reusable transforms.
 
-Use these lightweight "hats" to structure tasks. For solo projects, wear multiple hats but keep scopes separate.
+### Modeler
 
-- **Navigator (Front Door):** Classify request, outline 3–7 line plan, route to a hat, ensure a clear demo-able outcome.
-  - *Deliverable:* Plan doc or session log with routing decision
+* Train and evaluate models; compare against baselines.
+* Produce short reports with metrics and saved artifacts.
 
-- **Researcher:** Gather current facts, APIs, library usage; summarize in log with links.
-  - *Deliverable:* Research summary in session log or KB entry
+### Web/API
 
-- **DataOps:** Ingestion, schemas, validation, observability; ensure reproducible runs.
-  - *Deliverable:* Working pipeline + data quality tests
+* Implement FastAPI routers and minimal React views.
+* Add tests, pagination, and input validation.
 
-- **Feature Engineer / Core Logic:** Transform data or implement core business logic with tests.
-  - *Deliverable:* Module with unit tests, ≥80% coverage
+### Curator
 
-- **Modeler (if applicable):** Baselines → metrics → model/logic card; compare to naive/previous.
-  - *Deliverable:* Model card + comparison report
+* Review correction requests, verify with multiple sources, and apply.
+* Append to correction_log with reviewer identity and reason.
 
-- **App/UI:** Minimal CLI/UI surfaces; wire happy-path first.
-  - *Deliverable:* Working demo (screenshots/video)
+## Handoff Packet Template (Navigator → Specialist)
 
-- **DevEx/CI:** Tests, linting, CI jobs, release tagging, monitoring hooks.
-  - *Deliverable:* Green CI run or new automation
+* Task goal and definition of done.
+* Links to relevant files and line anchors.
+* Constraints: timebox, scope, context budget.
+* Expected artifacts: code paths, tests, docs to update.
+* Rollback plan if applicable.
 
-- **Docs/PM:** Thread decisions into Charter/KB; keep schedule and checklists aligned.
-  - *Deliverable:* Updated docs reflecting current state
+## Context Budgets
 
-> **Tip:** Each task in the Implementation Schedule should map to one hat and have a demo-able deliverable.
+* Navigator: ≤ 2.5k tokens on cold start; fetch on‑demand docs only as needed.
+* Specialists: ≤ 1.5–2k tokens initial, then targeted fetches.
+* Prefer checklists and links; avoid long prose.
 
----
+## Operating Rules
 
-## 3) Routing Rules
+* Every PR must include tests when logic is added or changed.
+* Use ruff for format and lint; pytest must pass locally before PR.
+* Update docs when behavior or APIs change.
+* Do not commit secrets; respect robots/ToS during ingestion.
 
-1. **Start at the Schedule:** Pick a single task from `docs/implementation_schedule.md`. If missing, create a stub task first.
-2. **Create a branch:** `feature/<slug>` or `fix/<slug>` and link the task in the session log.
-3. **Choose the hat:** Select the role that owns the deliverable; do **only** that scope in this PR.
-4. **Validate:** Run local checks; if CI fails, read the failing step logs and reproduce locally.
-5. **Close loop:** End session log; open PR referencing the schedule task and checklist items.
+## Common Flows (Checklists)
 
-**Example Routing:**
+### Implement A New Ingestion Adapter
 
-- Task: "Add CSV validation for user uploads"
-- Hat: **DataOps** (owns validation)
-- Branch: `feature/csv-validation`
-- Deliverable: Validation function + tests
-- Out of scope: UI changes, API endpoint (different hats)
+* [ ] Identify primary and backup sources; check ToS and robots.
+* [ ] Map fields to canonical schema; define natural keys.
+* [ ] Implement parser and idempotent upsert with provenance.
+* [ ] Add fixtures and tests; run pytest.
+* [ ] Update knowledge_base sources table and CHANGELOG.
 
----
+### Add Or Change A Table
 
-## 4) Session Workflow (Required)
+* [ ] Write Alembic migration; keep naming deterministic.
+* [ ] Update docs/database_schema.md and link migration.
+* [ ] Add or update tests for constraints and queries.
+* [ ] Note any follow‑up tasks in implementation_schedule.
 
-- **Open:** Use **Session Start** template → capture objective, plan, and inputs.
-- **Execute:** Keep diffs small; narrate major decisions in the log.
-- **Close:** Use **Session End** template → summarize work, link artifacts, call out next steps.
-- **Commit Discipline:** Clear message: `feat|fix|docs|chore: <scope> [schedule:weekX-taskY]`.
+### Apply A Correction (Curator)
 
----
+* [ ] Verify discrepancy with at least two sources.
+* [ ] Apply via admin API or SQL script (idempotent).
+* [ ] Append to correction_log with who, when, reason, source.
+* [ ] Add an entry in docs/decisions if non‑trivial.
 
-## 5) Escalation Triggers (Stop & Ask)
+## Definition Of Done (Per PR)
 
-- Schema or API change detected/required
-- Secrets/auth/infra configuration touched
-- Test changes that alter public behavior or contracts
-- Dependency upgrades beyond patch version
-- Ambiguous acceptance criteria or conflicting docs
-- Failing CI that cannot be reproduced locally in <30 min
+* [ ] Small, focused diff; linked to schedule task.
+* [ ] Tests added/updated; pytest green.
+* [ ] Ruff format and lint clean.
+* [ ] Docs updated where relevant.
+* [ ] If schema changed: migration included and documented.
 
-> When triggered: document findings in the session log, propose options, and request human review.
+## Escalation And Safety
 
----
+* If blocked by external sites, reduce rate, switch to backup sources, or cache.
+* For security concerns or data integrity issues, follow the incident steps in docs/security.md and docs/runbook.md.
+* When information is uncertain, return assumptions and risks explicitly.
 
-## 6) Quality Gates (Definition of Done)
+## Glossary (Agent Terms)
 
-A task is **Done** only when:
+* Context budget: estimated token allowance for startup or a handoff.
+* Handoff packet: minimal set of links, goals, and constraints to start work.
+* Idempotent upsert: safe write that can be retried without duplicates.
 
-- Code is merged to `main` and all **Pre-Merge** checks pass.
-- Tests cover new logic; coverage not reduced.
-- Docs updated where relevant (Charter, KB, README).
-- Task status flipped in the Implementation Schedule.
+## Maintenance
 
-(See detailed checklists in `docs/checklists.md`.)
-
----
-
-## 7) Planning & Victory Tests
-
-### Planning Mode
-
-For large or risky changes, produce a short plan (bullets, files to edit, tests to add). Do **not** begin edits until plan is acknowledged in the log.
-
-**Planning checklist:**
-
-- [ ] Which files will change?
-- [ ] Which tests will be added/modified?
-- [ ] Any docs/config updates needed?
-- [ ] Estimated size (XS/S/M/L)?
-- [ ] Any escalation triggers in scope?
-
-### Victory Test (Prompt → PR)
-
-New agents should run this trivial change to validate toolchain end-to-end:
-
-1. Pick task: "Add version number to CLI help output"
-2. Write test: Assert `--version` prints expected format
-3. Implement: Add version string to CLI
-4. Run: `uv run ruff format . && uv run ruff check . && uv run pytest`
-5. Open PR with proper title/labels
-6. Verify CI passes
-
-**Success:** PR merged = agent is ready for real work
-
----
-
-## 8) Minimal Command Palette
-
-```bash
-# One-time setup
-uv sync && pre-commit install
-
-# Daily loop
-uv run ruff format . && uv run ruff check .
-uv run pytest -vv
-
-# Docs
-mkdocs serve  # http://127.0.0.1:8000
-```
-
----
-
-## 9) PR Rules (Fast Reviews)
-
-- **Scope:** Single task, minimal diff (<300 lines preferred)
-- **Title:** `feat|fix|docs|chore: <scope> [schedule:weekX-taskY]`
-- **Body:** What/why, links (session log, schedule row), screenshots if UI/CLI
-- **Labels:** `size:XS/S/M/L`, `risk:low/med/high`, `area:<module>`
-- **Review time:** XS/S = <2hrs, M = <1 day, L requires planning meeting
-
----
-
-## 10) Common Failure Paths & Fixes
-
-### Code/Test Issues
-
-- **Lint fails:** `uv run ruff check . --fix` then re-run.
-- **Tests fail (local):** `uv run pytest -vv -k <pattern>`; capture failing output in log.
-- **CI-only failures:** Open failing job; reproduce locally using the same command; attach notes to PR.
-- **Import errors:** Verify `pyproject.toml`; run `uv sync`.
-
-### Agent-Specific Issues
-
-- **Context drift:** Summarize progress in session log, clear chat history, resume from log + docs
-- **Scope creep:** If you've touched >3 files or >2 hats, stop and split into multiple PRs
-- **Stuck >30min:** Document blockers in session log; flag for human review
-- **Conflicting instructions:** AI_GUIDE/AGENTS trumps chat history; cite this doc when clarifying
-
----
-
-## 11) Links (Jump Table)
-
-- **Front Door:** `AI_GUIDE.md`
-- **Project Brief:** `docs/project_brief.md`
-- **Changelog:** `CHANGELOG.md`
-- **Runbook:** `docs/runbook.md`
-- **Charter / PRD:** `docs/project_charter.md`
-- **Implementation Schedule:** `docs/implementation_schedule.md`
-- **Standards & Workflow:** `docs/development_standards.md`
-- **Quality Gates & Checklists:** `docs/checklists.md`
-- **Session Templates:** `docs/ai_session_templates.md`
-- **KB:** `docs/knowledge_base.md`
-
----
-
-## 12) When to Update This Doc
-
-Update AGENTS.md when:
-
-- Adding/removing agent roles or changing their mandates
-- Modifying escalation triggers or quality gates
-- Changing core workflow (session templates, routing rules)
-- Adding new safety guardrails or "Don't" items
-- Updating tooling that affects the command palette
-
-Keep changes atomic and document rationale in git commit message.
-
----
-
-*Keep this file ≤ ~2 pages. If a section grows, simplify the tool/flow it describes or move details to a dedicated doc under `docs/`.*
+* Quarterly: review this file for alignment with schedule and system changes.
+* Keep this file ≤ 5,000 tokens; prefer links to long explanations.

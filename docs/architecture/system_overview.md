@@ -1,80 +1,144 @@
-# System Overview
+# System Overview — Architecture, UI, and API
 
-This document provides a high-level overview of the system architecture for a typical AI project. It is intended to be a starting point and should be adapted to fit the specific needs of your project.
+> **Purpose.** High‑level blueprint for how SpreadSheetz works across ingestion, storage, API, and UI. This revision adds **EC/TW attribution in UI**, **Phase‑2 entities (teases/guests/jams)**, and **API endpoints** that expose them.
 
-## Architecture Diagram
+**Last Updated:** 2025‑11‑06
+**Sources Policy:** Everyday Companion (**EC**) primary; TourWrangler (**TW**) secondary; Panicstream excluded.
 
-```mermaid
-graph TD
-    subgraph "Data Sources"
-        A[External APIs]
-        B[Databases]
-        C[File Storage]
-    end
+---
 
-    subgraph "Data Platform"
-        D[Data Ingestion & ETL]
-        E[Data Warehouse]
-        F[Feature Store]
-    end
+## 1) Architecture at a Glance
 
-    subgraph "ML Platform"
-        G[Experiment Tracking]
-        H[Model Training]
-        I[Model Registry]
-    end
+```
+[ EC ]      [ TW ]
+  |           |
+  |  parsers  |   (rate‑limited, respectful)
+  v           v
+[ Ingestion Jobs ]  →  [ Staging Tables ]  →  [ Canonical DB ]
+                              |                     |
+                              |                     ├─ show / set / set_song / song / venue
+                              |                     ├─ show_source (provenance)
+                              |                     ├─ guest / show_guest (Phase‑2)
+                              |                     ├─ tease (Phase‑2)
+                              |                     └─ performance_tag / annotation (Phase‑2)
+                              |
+                              └─ Validators (aliases, order, confidence)
 
-    subgraph "Serving"
-        J[API Server]
-        K[Batch Inference]
-    end
-
-    subgraph "Monitoring"
-        L[Data Quality Monitoring]
-        M[Model Performance Monitoring]
-    end
-
-    A --> D
-    B --> D
-    C --> D
-    D --> E
-    E --> F
-    F --> H
-    G --> H
-    H --> I
-    I --> J
-    I --> K
-    J --> M
-    K --> M
-    E --> L
+[ API ]  →  [ Web UI ]  →  [ Users / Curators ]
 ```
 
-## Components
+---
 
-### Data Sources
+## 2) UI Overview
 
-*   **External APIs:** Third-party services that provide data.
-*   **Databases:** Internal databases containing business data.
-*   **File Storage:** Cloud storage services like S3 or GCS for storing raw data.
+### 2.1 Show Page
 
-### Data Platform
+* **Header**: Artist, date, city, venue.
+* **Source pill**: "Source: EC" or "Source: TW" (link to `source_url`). Multiple sources list as compact chips.
+* **Confidence**: Show `data_confidence` as a subtle badge (High / Medium / Low).
+* **Disputed banner**: If any `annotation(type='disputed')` exists for this show, show a dismissible banner summarizing the dispute and linking to details.
+* **Setlist**: Render sets with song order, segues (`>`, `→`, `->`).
+* **Phase‑2 details**:
 
-*   **Data Ingestion & ETL:** Pipelines for extracting, transforming, and loading data from various sources into the data warehouse.
-*   **Data Warehouse:** A central repository for structured and semi-structured data.
-*   **Feature Store:** A centralized repository for storing, sharing, and managing features for machine learning models.
+  * **Jams**: Show clock icon with `jam_minutes` where `is_jam=true`.
+  * **Teases**: Inline bracket link (e.g., `[Low Spark tease]`) linking to song details.
+  * **Guests**: Per‑song inline chips when available; otherwise a show‑level "Guests" panel from `show_guest`.
+* **Suggest a correction** button: opens intake form (ties to Corrections Policy).
 
-### ML Platform
+### 2.2 Song Detail Page
 
-*   **Experiment Tracking:** Tools for tracking experiments, including code, data, parameters, and metrics.
-*   **Model Training:** The process of training machine learning models on the prepared data.
-*   **Model Registry:** A central repository for storing, versioning, and managing trained models.
+* Play count, last played, avg gap.
+* **Teased‑by** list: performances where this song was teased (`GET /songs/{id}/teases`).
+* **With guests**: top guest collaborators via `performance_tag(tag_type='guest_on_song')`.
 
-### Serving
+### 2.3 Lists & Search
 
-*   **API Server:** A web server that exposes the trained model as an API for real-time inference.
-*   **Batch Inference:** The process of running inference on a large batch of data.
+* Server‑side filters for date range, city/venue, has‑teases, has‑guest, min jam length.
+* Each result row displays **source chips** and **confidence badge**.
 
-### Monitoring
+---
 
-*   **Data Quality Monitoring:** Tools for monitoring the quality of the data used to train and evaluate models.
-*   **Model Performance Monitoring:** Tools for monitoring the performance of the model in production.
+## 3) API Surface (stable preview)
+
+Base path: `/api/v1`
+
+### 3.1 Shows
+
+* `GET /shows`
+
+  * **Query params**: `date_from`, `date_to`, `city`, `venue_id`, `has_tease` (bool), `has_guest` (bool), `min_jam_min` (float), `confidence` (one of `high|medium|low`), `page`, `page_size`.
+  * **Returns**: paginated list with `id`, `artist_id`, `show_date`, `venue{}`, `data_confidence`, `sources[]`.
+
+* `GET /shows/{id}`
+
+  * **Returns**: show meta; `sources[]`; `annotations[] (type='disputed'|...)`; sets with songs including `segue_next`, `is_jam`, `jam_minutes`; nested `teases[]` and `tags[]`; `guests[]` (show level).
+
+### 3.2 Songs
+
+* `GET /songs/{id}`: canonical song details + usage stats snapshot.
+* `GET /songs/{id}/teases`: all performances where this song was teased (joins `tease` → `set_song`).
+
+### 3.3 Corrections
+
+* `POST /corrections`: public intake (rate‑limited). Payload references our app URL and EC/TW links.
+* `GET /shows/{id}/history`: audit trail from `audit_log` (latest 50).
+
+**Errors** (shared envelope):
+
+```json
+{ "error": { "code": "bad_request", "message": "...", "details": { } } }
+```
+
+**Pagination**: cursor or page/size (define in api_contract when stabilized).
+
+---
+
+## 4) Data Model Highlights
+
+* **Provenance**: `show_source(show_id, source_id in ['ec','tw'], source_url)`; every show must have ≥ 1 row.
+* **Confidence**: `show.data_confidence in ('low','medium','high')` with curator rules from Corrections Policy.
+* **Phase‑2**:
+
+  * `set_song.is_jam`, `set_song.jam_minutes`
+  * `tease(set_song_id, teased_song_id, confidence, source_id, source_url)`
+  * `performance_tag(tag_type in ['jam','guest_on_song','bustout','rare','disputed'], value jsonb)`
+  * `guest`, `show_guest`
+
+---
+
+## 5) Ingestion & Freshness
+
+* **Active tour**: TW daily; EC every 3 days.
+* **Off‑tour**: Weekly checks for retro edits.
+* **Backfill**: Weekly for 6 weeks post‑show if any page is provisional or partial.
+* **Ethics**: Honor robots/ToS; conservative rate limits (see Knowledge Base).
+
+---
+
+## 6) Observability & SLOs
+
+* **API**: P95 < 200 ms on `/shows` index with warm cache; P95 < 300 ms on `/shows/{id}`.
+* **Jobs**: < 1% parser failure rate; alert on alias drift (`song_pending` growth > 0.1%).
+* **UX**: Time‑to‑interactive on show page < 1.5s on broadband.
+
+---
+
+## 7) Security Notes (quick)
+
+* Secrets via env; no secrets committed.
+* Rate limit `POST /corrections` per IP; captcha as needed.
+* Least‑privileged DB roles for ingestion vs API.
+
+---
+
+## 8) Open TODOs
+
+* Finalize `api_contract.md` with response schemas.
+* Add cache keys for `/shows` list/detail including `confidence`.
+* Curator dashboard for disputes and alias review.
+
+---
+
+## 9) Change Log (this file)
+
+* **2025‑11‑06:** Added UI source pill, disputed banner, Phase‑2 entities in data model, and API endpoints to surface teases/guests/jams. Clarified ingestion cadence and SLOs.

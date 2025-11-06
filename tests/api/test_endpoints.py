@@ -2,7 +2,7 @@
 Test cases for the API endpoints.
 """
 from fastapi.testclient import TestClient
-from vibe_coding.api.main import app
+from spreadsheetz.api.main import app
 
 client = TestClient(app)
 

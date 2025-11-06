@@ -1,9 +1,16 @@
 [project]
-name = "vibe-coding-template"
+name = "spreadsheetz"
 version = "0.1.0"
-description = "A template for Vibe Coding data science projects."
+description = "A fast, respectful, and community‑minded setlist and attendance tracker for Widespread Panic."
 authors = [{ name = "Connor Kitchings", email = "connor.kitchings@gmail.com" }]
-dependencies = []
+requires-python = ">=3.11, <3.14"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "alembic",
+    "psycopg2-binary",
+    "python-dotenv",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -28,7 +35,7 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 
-[tool.uv.scripts]
+[tool.uv.tasks]
 docs = "mkdocs serve"
 
 [build-system]

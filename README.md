@@ -1,115 +1,77 @@
-# Vibe Coding Data Science Template
+# SpreadSheetz — Widespread Panic Setlist Stats & Attendance
 
-Welcome to the Vibe Coding Data Science Template! This repository provides a
-production-ready, highly automated foundation for data science and machine
-learning projects. It is built on the principles of the Vibe Coding System,
-emphasizing observability, reproducibility, and efficient AI-assisted
-collaboration.
+> **Mission.** A fast, respectful, and community‑minded setlist and attendance tracker for Widespread Panic. **Everyday Companion (EC)** is our primary reference; **TourWrangler (TW)** is secondary. Panicstream is out‑of‑scope.
 
-This template is not just another collection of files; it's a **system** designed to accelerate
-data science projects by solving common pain points out-of-the-box. It enforces best practices
-in a lightweight, automated way so you can focus on building, not boilerplate.
-
-For a deep dive into the methodology and guides, please see our
-[full documentation site](./docs/index.md).  
-If you're converting this template into a named project, start with the
-[Template Kickoff Guide](./docs/template_starting_guide.md) to capture scope,
-owners, and required doc/code updates.
+**Status:** MVP in progress · **Last Updated:** 2025‑11‑06
 
 ---
 
-## 🚀 Getting Started
+## Contributor Guide
 
-If you're adopting this repository for a production project, complete the
-[Template Kickoff Guide](./docs/template_starting_guide.md) to document scope,
-owners, and initial decisions before running the steps below.
-
-### Prerequisites
-
-- [Python 3.11+](https://www.python.org/downloads/)
-- [uv](https://github.com/astral-sh/uv)
-- [Docker](https://www.docker.com/get-started)
-- [pre-commit](https://pre-commit.com/#installation)
-
-### Installation
-
-1.  **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/your-username/your-repo-name.git
-    cd your-repo-name
-    ```
-
-2.  **Install dependencies:**
-
-    ```bash
-    uv sync
-    ```
-
-3.  **Install pre-commit hooks:**
-
-    ```bash
-    pre-commit install
-    ```
-
-### Running the project
-
-1.  **Run the example flow:**
-
-    ```bash
-    prefect server start &
-    python src/vibe_coding/flows/example_flow.py
-    ```
-
-2.  **Run the tests:**
-
-    ```bash
-    pytest
-    ```
-
-3.  **Build the documentation:**
-
-    ```bash
-    mkdocs serve
-    ```
+> For a complete guide on how to contribute to this project, including setup, development standards, and architectural overview, please see our primary contributor guide:
+> 
+> **[➡️ CONTRIBUTING.md](CONTRIBUTING.md)**
 
 ---
 
-## 📂 Project Structure
+## Quickstart
 
-```text
-.vibe-coding-template/
-├── .github/              # GitHub Actions workflows and templates
-├── data/                 # Raw and processed data (not committed)
-├── docs/                 # Project documentation
-├── models/               # Trained model artifacts (not committed)
-├── notebooks/            # Jupyter notebooks for exploration and analysis
-├── reports/              # Generated reports and figures
-├── scripts/              # Utility and automation scripts
-├── session_logs/         # Chronological development session logs
-├── src/                  # Project source code
-│   ├── vibe_coding/      # Source code for the project
-│   │   ├── flows/        # Prefect orchestration flows
-│   │   └── utils/        # Shared utility modules
-│   └── tests/            # Unit and integration tests
-├── .dockerignore         # Files to ignore in Docker builds
-├── .gitignore            # Files to ignore in Git
-├── .pre-commit-config.yaml # Configuration for pre-commit hooks
-├── Dockerfile            # Multi-stage Dockerfile for containerization
-├── mkdocs.yml            # Configuration for MkDocs
-├── prefect.yaml          # Configuration for Prefect deployments
-├── pyproject.toml        # Project metadata and dependencies
-└── README.md             # This file
+```bash
+# 1) Clone & set up
+uv sync  # or: pip install -r requirements.txt
+
+# 2) Environment
+cp .env.example .env  # add DB creds
+
+# 3) Dev services
+docker compose up -d  # postgres, adminer
+
+# 4) Run API/UI (examples)
+uv run api/main.py      # FastAPI (or your chosen stack)
+uv run web/dev_server   # React/Vite (optional)
+```
+
+### Seed & Smoke Tests
+
+```bash
+uv run scripts/seed_demo.py    # songs/venues/shows sample
+uv run tests -k smoke          # /shows & /stats perf smoke
 ```
 
 ---
 
-## 🤝 Contributing
+## Data & Provenance (EC/TW)
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+* **Primary vs secondary:** Prefer **EC** when sources disagree; use **TW** when EC is silent and mark `data_confidence='medium'` until corroborated.
+* **Attribution:** Every show stores `show_source(source_id, source_url)` and the UI displays a source pill on show pages.
+* **Ethics:** Respect robots/ToS. Rate limits and ingestion rules live in **docs/knowledge_base.md**.
+
+**Start here:**
+
+* 📚 **Knowledge Base** → EC/TW mapping tables, rate limits, conflict resolution.
+* 🗄️ **Database Schema** → canonical tables + Phase‑2 entities (tease/guest/performance_tag).
+* 📝 **Corrections Policy** → end‑to‑end curator workflow & SLAs.
 
 ---
 
-## 📄 License
+## API Overview (preview)
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+* `GET /shows` — list/filter shows; includes provenance and `data_confidence`.
+* `GET /shows/{id}` — details with sets/songs; includes **jams**, **teases**, and **guests** (Phase‑2).
+* `GET /songs/{id}/teases` — performances that tease a given song.
+* `POST /corrections` — create an intake ticket (public; rate‑limited).
+  **Full contract:** see **docs/system_overview.md** and **docs/database_schema.md**.
+
+---
+
+## Contributing
+
+* Open an issue with a clear **What/Why/How** and link the schedule item.
+* Keep PRs small; update docs in the same PR or a linked follow‑up.
+* For data corrections, follow **docs/corrections_policy.md**.
+
+---
+
+## Change Log
+
+* **2025‑11‑06:** Wired cross‑links to **Knowledge Base (EC/TW)**, **Database Schema (Phase‑2)**, and **Corrections Policy**. Clarified data/provenance rules and read‑first path.
